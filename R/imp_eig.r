@@ -2,6 +2,7 @@
 # License: GPL
 # Author: Zhili Zheng <zhilizheng@outlook.com>
 
+library(parallel)
 
 #' @title Impute summary data
 #' @usage impute(mafile, LDdir, output)
@@ -12,7 +13,7 @@
 #' @param log2file boolean, FALSE: display message on terminal; TRUE: redirect to an output file; default FALSE
 #' @return none, results in the specified output
 #' @export
-impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE){
+impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE, ncores=parallel::detectCores()-1){
     LD_folder = LDdir
     message("Impute the summary data by LD")
     if(file.exists(output)){
@@ -80,51 +81,53 @@ impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE){
 
 
     message("Start summary imputation...")
-    all_ma = list()
-
-    idxBlocks = unique(snpfinal$Block)
-
-    info = getLDPrefix(LD_folder)
-
-    for(idxBlk in idxBlocks){
+    
+    # Create cluster
+    cl <- makeCluster(ncores)
+    
+    # Export necessary objects to cluster
+    clusterExport(cl, c("snpfinal", "vp_median", "info", "thresh"))
+    
+    # Parallel processing of blocks
+    all_ma = parLapply(cl, idxBlocks, function(idxBlk) {
         message("==========", idxBlk, "=========")
-
+        
         ma_Block = snpfinal[Block==idxBlk]
         ma_Block[, r2:=1]
-
+        
         m = nrow(ma_Block)
-
         idxtt = ma_Block[is.finite(b), which=TRUE]
-
+        
         if(length(idxtt) != 0){
             ma_exist = ma_Block[idxtt]
             ma_exist[, z:=b/se]
-
-            message(" Imputing... ")
+            
             Zi = impGa(info$template, idxBlk, info$type, ma_exist$z, idxtt, m, thresh)
-
+            
             ma_block_n = ma_Block[-idxtt]
             ma_block_n[, z2:=Zi]
             ma_block_n[, base1:=sqrt(2*freq*(1-freq)*(N+z2*z2))]
             ma_block_n[, b2:=z2*sqrt(vp_median)/base1]
             ma_block_n[, se2:=sqrt(vp_median)/base1]
             ma_block_n[, p2:=pchisq(z2*z2, df=1, lower.tail=FALSE)]
-            ma_block_n[, r2:=0] # indicate imputed
-
+            ma_block_n[, r2:=0]
+            
             ma_Block[is.na(p), b:=ma_block_n$b2]
             ma_Block[is.na(p), se:=ma_block_n$se2]
             ma_Block[is.na(p), r2:=ma_block_n$r2]
             ma_Block[is.na(p), p:=ma_block_n$p2]
-        }else{
+        } else {
             ma_Block[is.na(p), b:=0]
             ma_Block[is.na(p), se:=1]
             ma_Block[is.na(p), r2:=-1]
             ma_Block[is.na(p), p:=1]
         }
-
-
-        all_ma[[idxBlk]] = ma_Block
-    }
+        
+        return(ma_Block)
+    })
+    
+    # Stop cluster
+    stopCluster(cl)
 
     ma_out = rbindlist(all_ma)
     ma_out[, Block:=NULL]
