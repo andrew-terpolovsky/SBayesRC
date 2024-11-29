@@ -11,9 +11,10 @@ library(parallel)
 #' @param output string, path to output (with filename.ma)
 #' @param thresh number, eigen cutoff threshold for imputation, default 0.995
 #' @param log2file boolean, FALSE: display message on terminal; TRUE: redirect to an output file; default FALSE
+#' @param n_threads integer; default number of cores divided by 2
 #' @return none, results in the specified output
 #' @export
-impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE, n_threads=parallel::detectCores()/4){
+impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE, n_threads=parallel::detectCores()/2){
     LD_folder = LDdir
     message(paste("Impute the summary data by LD, threads:", n_threads))
     if(file.exists(output)){
