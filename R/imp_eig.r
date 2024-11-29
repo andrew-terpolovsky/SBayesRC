@@ -88,7 +88,7 @@ impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE, n_threads
     info = getLDPrefix(LD_folder)
 
     # Initialize the cluster
-    cl <- makeCluster(n_threads, outfile = "logs.out")
+    cl <- makeCluster(n_threads)
 
     # Export the variable to all worker nodes
     clusterExport(cl, varlist = c("snpfinal", "info", "thresh"), envir = environment())
