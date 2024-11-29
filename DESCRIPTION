@@ -21,7 +21,8 @@ Depends:
     methods,
     utils,
     data.table,
-    stats
+    stats,
+    parallel
 Suggests:
     knitr,
     rmarkdown

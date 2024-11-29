@@ -6,6 +6,11 @@
 #' @importFrom data.table fwrite
 #' @importFrom data.table setnames
 #' @importFrom data.table rbindlist
+#' @importFrom parallel makeCluster
+#' @importFrom parallel parLapply
+#' @importFrom parallel clusterExport
+#' @importFrom parallel stopCluster
+#' @importFrom parallel detectCores
 
 # The following block is used by usethis to automatically manage
 # roxygen namespace tags. Modify with care!

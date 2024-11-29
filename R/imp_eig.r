@@ -2,6 +2,7 @@
 # License: GPL
 # Author: Zhili Zheng <zhilizheng@outlook.com>
 
+library(parallel)
 
 #' @title Impute summary data
 #' @usage impute(mafile, LDdir, output)
@@ -12,9 +13,9 @@
 #' @param log2file boolean, FALSE: display message on terminal; TRUE: redirect to an output file; default FALSE
 #' @return none, results in the specified output
 #' @export
-impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE){
+impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE, n_threads=parallel::detectCores()/4){
     LD_folder = LDdir
-    message("Impute the summary data by LD")
+    message(paste("Impute the summary data by LD, threads:", n_threads))
     if(file.exists(output)){
         message("don't need to run: ", output, " exists")
         return
@@ -80,13 +81,19 @@ impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE){
 
 
     message("Start summary imputation...")
-    all_ma = list()
 
     idxBlocks = unique(snpfinal$Block)
 
     info = getLDPrefix(LD_folder)
 
-    for(idxBlk in idxBlocks){
+    # Initialize the cluster
+    cl <- makeCluster(n_threads, outfile = "logs.out")
+
+    # Export the variable to all worker nodes
+    clusterExport(cl, varlist = c("snpfinal", "info", "thresh"), envir = environment())
+
+    # Run the parallel computation
+    all_ma = parLapply(cl, idxBlocks, function(idxBlk) {
         message("==========", idxBlk, "=========")
 
         ma_Block = snpfinal[Block==idxBlk]
@@ -122,9 +129,11 @@ impute = function(mafile, LDdir, output, thresh=0.995, log2file=FALSE){
             ma_Block[is.na(p), p:=1]
         }
 
+        return(ma_Block)
+    })
 
-        all_ma[[idxBlk]] = ma_Block
-    }
+    # Stop the cluster
+    stopCluster(cl)
 
     ma_out = rbindlist(all_ma)
     ma_out[, Block:=NULL]
